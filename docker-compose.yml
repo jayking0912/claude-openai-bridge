@@ -1,0 +1,11 @@
+version: "3.8"
+
+services:
+  claude-openai-bridge:
+    build: .
+    container_name: claude-openai-bridge
+    restart: unless-stopped
+    ports:
+      - "8082:8082"
+    volumes:
+      - ./config.toml:/config.toml:ro
