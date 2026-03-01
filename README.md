@@ -78,7 +78,7 @@ ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY="any-value" claude
 | `OPENAI_BASE_URL` | `openai_base_url` | `https://api.openai.com/v1` |
 | `AZURE_API_VERSION` | `azure_api_version` | 可选；附加为 query 参数 `api-version` |
 | `WIRE_API` | `wire_api` | `chat`（可选：`chat` / `responses`） |
-| `MIN_THINKING_LEVEL` | `min_thinking_level` | 可选：`low` / `medium` / `high`；作为 `reasoning_effort` 下限，仅对支持该字段的模型生效 |
+| `MIN_THINKING_LEVEL` | `min_thinking_level` | 可选：`low` / `medium` / `high`；作为 `reasoning_effort` 下限，仅对支持该字段的模型生效（`haiku -> small_model` 路由除外） |
 | `BIG_MODEL` | `big_model` | `gpt-4o` |
 | `MIDDLE_MODEL` | `middle_model` | 默认继承 `big_model` |
 | `SMALL_MODEL` | `small_model` | `gpt-4o-mini` |
@@ -139,6 +139,7 @@ ANTHROPIC_BASE_URL=http://localhost:8082 ANTHROPIC_API_KEY="any-value" claude
 - 未配置时：不设置全局下限，按请求自身的 thinking 推导
 - 配置后：最终 `reasoning_effort = max(请求推导结果, min_thinking_level)`
 - 仅对支持 `reasoning_effort` 的模型生效；不支持的模型会忽略该字段
+- `haiku -> small_model` 路由不会应用该下限
 
 示例：
 

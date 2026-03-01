@@ -20,7 +20,7 @@ use crate::config::Config;
 use crate::constants::{ROLE_ASSISTANT, ROLE_USER};
 use crate::models::{ClaudeMessage, ClaudeMessagesRequest};
 use assistant::convert_claude_assistant_message;
-use models::{OpenAiSystemMessage, map_claude_model_to_openai};
+use models::{OpenAiSystemMessage, map_claude_model_to_openai, routes_to_small_model};
 use system::extract_system_text;
 use tool_result::{
     convert_claude_tool_results, has_non_tool_result_content, is_tool_result_user_message,
@@ -33,6 +33,7 @@ pub fn convert_claude_to_openai(
     config: &Config,
 ) -> OpenAiChatRequest {
     let mapped_model = map_claude_model_to_openai(&request.model, config);
+    let min_thinking_level = resolve_min_thinking_level(&request.model, config);
     let thinking_type = request
         .thinking
         .as_ref()
@@ -46,7 +47,7 @@ pub fn convert_claude_to_openai(
         request.thinking.as_ref(),
         request.max_tokens,
         &mapped_model,
-        config.min_thinking_level.as_deref(),
+        min_thinking_level,
     );
 
     debug!(
@@ -71,7 +72,7 @@ pub fn convert_claude_to_openai(
     add_optional_request_fields(
         request,
         &mut openai_request,
-        config.min_thinking_level.as_deref(),
+        min_thinking_level,
     );
     add_tools(request, &mut openai_request);
     add_tool_choice(request, &mut openai_request);
@@ -102,6 +103,14 @@ pub fn convert_claude_to_openai(
     );
 
     openai_request
+}
+
+fn resolve_min_thinking_level<'a>(claude_model: &str, config: &'a Config) -> Option<&'a str> {
+    if routes_to_small_model(claude_model) {
+        None
+    } else {
+        config.min_thinking_level.as_deref()
+    }
 }
 
 fn push_system_message(request: &ClaudeMessagesRequest, openai_messages: &mut Vec<OpenAiMessage>) {
@@ -257,6 +266,41 @@ mod tests {
             tools: None,
             tool_choice: None,
         }
+    }
+
+    #[test]
+    fn haiku_route_ignores_min_thinking_level_for_small_model() {
+        let mut request = make_request(vec![ClaudeMessage {
+            role: ROLE_USER.to_string(),
+            content: Some(ClaudeContent::Text("hello".to_string())),
+        }]);
+        request.model = "claude-3-haiku-20240307".to_string();
+
+        let mut config = test_config();
+        config.small_model = "o3-mini".to_string();
+        config.min_thinking_level = Some("high".to_string());
+
+        let converted = convert_claude_to_openai(&request, &config);
+
+        assert_eq!(converted.model, "o3-mini");
+        assert_eq!(converted.reasoning_effort.as_deref(), Some("low"));
+    }
+
+    #[test]
+    fn non_small_route_still_applies_min_thinking_level() {
+        let request = make_request(vec![ClaudeMessage {
+            role: ROLE_USER.to_string(),
+            content: Some(ClaudeContent::Text("hello".to_string())),
+        }]);
+
+        let mut config = test_config();
+        config.middle_model = "o3-mini".to_string();
+        config.min_thinking_level = Some("high".to_string());
+
+        let converted = convert_claude_to_openai(&request, &config);
+
+        assert_eq!(converted.model, "o3-mini");
+        assert_eq!(converted.reasoning_effort.as_deref(), Some("high"));
     }
 
     #[test]

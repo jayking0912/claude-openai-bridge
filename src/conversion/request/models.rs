@@ -246,14 +246,20 @@ pub fn map_claude_model_to_openai(claude_model: &str, config: &Config) -> String
         return claude_model.to_string();
     }
 
+    if routes_to_small_model(claude_model) {
+        return config.small_model.clone();
+    }
+
     let model_lower = claude_model.to_lowercase();
-    if model_lower.contains("haiku") {
-        config.small_model.clone()
-    } else if model_lower.contains("sonnet") {
+    if model_lower.contains("sonnet") {
         config.middle_model.clone()
     } else {
         config.big_model.clone()
     }
+}
+
+pub fn routes_to_small_model(claude_model: &str) -> bool {
+    !is_upstream_native_model(claude_model) && claude_model.to_lowercase().contains("haiku")
 }
 
 fn is_upstream_native_model(model: &str) -> bool {
