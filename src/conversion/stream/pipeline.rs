@@ -45,6 +45,7 @@ pub async fn stream_openai_to_claude_sse(
                 )
                 .await;
             }
+            let _ = send_stop_sequence(&mut sender, &state).await;
             return state.usage_data;
         };
 
